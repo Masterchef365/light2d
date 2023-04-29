@@ -3,7 +3,7 @@ use cimvr_common::{
     render::{Mesh, MeshHandle, Render, UploadMesh, Vertex, Primitive},
     Transform,
 };
-use cimvr_engine_interface::{make_app_state, pkg_namespace, prelude::*, println, dbg};
+use cimvr_engine_interface::{make_app_state, pkg_namespace, prelude::*, println, dbg, FrameTime};
 use serde::{Deserialize, Serialize};
 use std::ops::Mul;
 
@@ -15,7 +15,29 @@ const BOUNCE_RDR: MeshHandle = MeshHandle::new(pkg_namespace!("Bounces"));
 const WALLS_RDR: MeshHandle = MeshHandle::new(pkg_namespace!("Walls"));
 
 impl UserState for ClientState {
-    fn new(io: &mut EngineIo, _sched: &mut EngineSchedule<Self>) -> Self {
+    fn new(io: &mut EngineIo, sched: &mut EngineSchedule<Self>) -> Self {
+        io.create_entity()
+            .add_component(Transform::default())
+            .add_component(Render::new(BOUNCE_RDR).primitive(Primitive::Lines))
+            .build();
+
+        io.create_entity()
+            .add_component(Transform::default())
+            .add_component(Render::new(WALLS_RDR).primitive(Primitive::Lines))
+            .build();
+
+        sched.add_system(Self::update)
+            .subscribe::<FrameTime>()
+            .build();
+
+        Self
+    }
+}
+
+impl ClientState {
+    pub fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
+        let Some(FrameTime { time, .. }) = io.inbox_first() else { return };
+
         let scene = vec![
             Line(Vec2::new(1.5, -1.), Vec2::new(1., 1.)),
             Line(Vec2::new(-1.5, -1.), Vec2::new(-1., 1.)),
@@ -29,7 +51,7 @@ impl UserState for ClientState {
 
         let ray = Ray {
             origin: Vec2::ZERO,
-            dir: Vec2::X,
+            dir: Vec2::from_angle(time),
         };
 
         let path = calc_path(ray, &scene, 10);
@@ -39,22 +61,7 @@ impl UserState for ClientState {
             mesh: path_mesh(&path, [0., 1., 0.]),
         });
 
-        io.create_entity()
-            .add_component(Transform::default())
-            .add_component(Render::new(BOUNCE_RDR).primitive(Primitive::Lines))
-            .build();
-
-        io.create_entity()
-            .add_component(Transform::default())
-            .add_component(Render::new(WALLS_RDR).primitive(Primitive::Lines))
-            .build();
-
-        Self
     }
-}
-
-impl ClientState {
-    pub fn update(&mut self, io: &mut EngineIo, query: QueryResult) {}
 }
 
 struct ServerState;
@@ -66,28 +73,28 @@ impl UserState for ServerState {
 }
 
 /*
-fn wall_object_from_line(line: Line) -> (Transform, Wall) {
-    let Line(p1, p2) = line;
-    let length = (p2 - p1).length();
-    let wall = Wall(length);
+   fn wall_object_from_line(line: Line) -> (Transform, Wall) {
+   let Line(p1, p2) = line;
+   let length = (p2 - p1).length();
+   let wall = Wall(length);
 
-    let origin = (p2 + p1) / 2.;
-    let dir = (p2 - origin).angle_between(Vec2::X);
-}
+   let origin = (p2 + p1) / 2.;
+   let dir = (p2 - origin).angle_between(Vec2::X);
+   }
 
-fn wall_object_to_line(tf: Transform, wall: Wall) -> Line {
-    let p1 = Vec3::X * wall.width / 2.;
-    let p2 = Vec3::NEG_X * wall.width / 2.;
+   fn wall_object_to_line(tf: Transform, wall: Wall) -> Line {
+   let p1 = Vec3::X * wall.width / 2.;
+   let p2 = Vec3::NEG_X * wall.width / 2.;
 
-    let p1 = tf.to_homogeneous().transform_point3(p1);
-    let p2 = tf.to_homogeneous().transform_point3(p2);
+   let p1 = tf.to_homogeneous().transform_point3(p1);
+   let p2 = tf.to_homogeneous().transform_point3(p2);
 
-    Line(p1.xz(), p2.xz())
-}
+   Line(p1.xz(), p2.xz())
+   }
 
 #[derive(Component, Copy, Serialize, Deserialize, Clone, Debug)]
 struct Wall {
-    width: f32,
+width: f32,
 }
 */
 
@@ -223,11 +230,11 @@ fn lines_mesh(lines: &[Line], color: [f32; 3]) -> Mesh {
 }
 
 /*
-impl Default for Wall {
-    fn default() -> Self {
-        Self {
-            width: 1.,
-        }
-    }
-}
-*/
+   impl Default for Wall {
+   fn default() -> Self {
+   Self {
+   width: 1.,
+   }
+   }
+   }
+   */
