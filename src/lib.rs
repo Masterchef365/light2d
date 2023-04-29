@@ -39,8 +39,8 @@ impl ClientState {
         let Some(FrameTime { time, .. }) = io.inbox_first() else { return };
 
         let scene = vec![
-            Line(Vec2::new(1.5, -1.), Vec2::new(1., 1.)),
-            Line(Vec2::new(-1.5, -1.), Vec2::new(-1., 1.)),
+            Line(Vec2::new(1., -10.), Vec2::new(1., 10.)),
+            Line(Vec2::new(-1., -10.), Vec2::new(-1., 10.)),
             //Line(Vec2::new(3., 1.), Vec2::new(2., 2.))
         ];
 
@@ -51,10 +51,10 @@ impl ClientState {
 
         let ray = Ray {
             origin: Vec2::ZERO,
-            dir: Vec2::from_angle(time),
+            dir: Vec2::from_angle(time / 10.),
         };
 
-        let path = calc_path(ray, &scene, 10);
+        let path = calc_path(ray, &scene, 100);
 
         io.send(&UploadMesh {
             id: BOUNCE_RDR,
@@ -169,17 +169,18 @@ fn calc_path(mut ray: Ray, scene: &[Line], max_bounces: usize) -> Vec<Vec2> {
             points.push(end_pt);
 
             // Mirror reflections
-            let new_dir = reflect(ray.dir, line.normal());
+            let normal = line.normal() * ray.dir.dot(line.normal()).signum();
+            let new_dir = reflect(ray.dir, normal);
 
             ray = Ray {
                 origin: end_pt,
                 dir: new_dir,
             };
 
-            ray.origin = ray.dir * 0.1;
+            ray.origin += ray.dir * 0.001;
 
         } else {
-            points.push(dbg!(ray.position(100.)));
+            points.push(ray.position(100.));
             return points;
         }
     }
