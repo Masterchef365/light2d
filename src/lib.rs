@@ -17,8 +17,9 @@ const WALLS_RDR: MeshHandle = MeshHandle::new(pkg_namespace!("Walls"));
 impl UserState for ClientState {
     fn new(io: &mut EngineIo, _sched: &mut EngineSchedule<Self>) -> Self {
         let scene = vec![
-            Line(Vec2::new(1., -1.), Vec2::new(1., 1.)),
-            Line(Vec2::new(3., 1.), Vec2::new(2., 2.))
+            Line(Vec2::new(1.5, -1.), Vec2::new(1., 1.)),
+            Line(Vec2::new(-1.5, -1.), Vec2::new(-1., 1.)),
+            //Line(Vec2::new(3., 1.), Vec2::new(2., 2.))
         ];
 
         io.send(&UploadMesh {
@@ -28,15 +29,14 @@ impl UserState for ClientState {
 
         let ray = Ray {
             origin: Vec2::ZERO,
-            dir: -Vec2::X,
+            dir: Vec2::X,
         };
 
         let path = calc_path(ray, &scene, 10);
-        dbg!(&path);
 
         io.send(&UploadMesh {
             id: BOUNCE_RDR,
-            mesh: path_mesh(&path, [1.; 3]),
+            mesh: path_mesh(&path, [0., 1., 0.]),
         });
 
         io.create_entity()
@@ -97,7 +97,7 @@ struct Line(Vec2, Vec2);
 impl Line {
     pub fn position(&self, t: f32) -> Vec2 {
         let Line(p1, p2) = *self;
-        p1 * (1. - t) + p2
+        p1 * (1. - t) + p2 * t
     }
 
     pub fn direction(&self) -> Vec2 {
@@ -141,11 +141,11 @@ fn ray_line_intersect(ray: Ray, line: Line) -> Option<f32> {
     }
 
     // Calculate indices
-    let t = cross2d(ray_origin, line_dir) / discriminant;
-    let k = cross2d(ray_origin, ray.dir) / discriminant;
+    let t = cross2d(line_dir, ray_origin) / discriminant;
+    let k = cross2d(ray.dir, ray_origin) / discriminant;
 
     // Check if we're inside the line segment, and if so return t
-    ((0.0..=1.0).contains(&k) && t >= 0.).then(|| t)
+    ((0.0..=1.0).contains(&k) && t >= 0.).then(|| k)
 }
 
 fn reflect(incident: Vec2, normal: Vec2) -> Vec2 {
@@ -154,6 +154,7 @@ fn reflect(incident: Vec2, normal: Vec2) -> Vec2 {
 
 fn calc_path(mut ray: Ray, scene: &[Line], max_bounces: usize) -> Vec<Vec2> {
     let mut points = vec![ray.origin];
+
     for _ in 0..max_bounces {
         if let Some((idx, interp)) = intersect_scene(ray, scene) {
             let line = scene[idx];
@@ -161,13 +162,17 @@ fn calc_path(mut ray: Ray, scene: &[Line], max_bounces: usize) -> Vec<Vec2> {
             points.push(end_pt);
 
             // Mirror reflections
-            let new_dir = reflect(ray.dir, line.direction());
+            let new_dir = reflect(ray.dir, line.normal());
 
             ray = Ray {
                 origin: end_pt,
                 dir: new_dir,
             };
+
+            ray.origin = ray.dir * 0.1;
+
         } else {
+            points.push(dbg!(ray.position(100.)));
             return points;
         }
     }
@@ -177,13 +182,20 @@ fn calc_path(mut ray: Ray, scene: &[Line], max_bounces: usize) -> Vec<Vec2> {
 
 /// Returns the index and interpolation of the wall which was hit
 fn intersect_scene(ray: Ray, scene: &[Line]) -> Option<(usize, f32)> {
+    let mut closest = None;
+
     for (idx, line) in scene.iter().enumerate() {
         if let Some(t) = ray_line_intersect(ray, *line) {
-            return Some((idx, t));
+            if let Some((_, prev_t)) = closest {
+                if prev_t < t {
+                    continue;
+                }
+            }
+            closest = Some((idx, t));
         }
     }
 
-    None
+    closest
 }
 
 fn path_mesh(path: &[Vec2], color: [f32; 3]) -> Mesh {
