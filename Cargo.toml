@@ -1,0 +1,12 @@
+[package]
+name = "template_plugin"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+cimvr_common = { git = "https://github.com/ChatImproVR/iteration0.git", branch = "main" }
+cimvr_engine_interface  = { git = "https://github.com/ChatImproVR/iteration0.git", branch = "main" }
+serde = { version = "1", features = ["derive"] }
