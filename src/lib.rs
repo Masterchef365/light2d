@@ -1,11 +1,11 @@
 use cimvr_common::{
-    glam::{Vec2, Vec3, Vec3Swizzles},
+    glam::Vec2,
     render::{Mesh, MeshHandle, Render, UploadMesh, Vertex, Primitive},
     Transform,
 };
-use cimvr_engine_interface::{make_app_state, pkg_namespace, prelude::*, println, dbg, FrameTime};
+use cimvr_engine_interface::{make_app_state, pkg_namespace, prelude::*, FrameTime};
 use serde::{Deserialize, Serialize};
-use std::ops::Mul;
+use std::f32::consts::TAU;
 
 make_app_state!(ClientState, ServerState);
 
@@ -51,7 +51,7 @@ impl ClientState {
 
         let ray = Ray {
             origin: Vec2::ZERO,
-            dir: Vec2::from_angle(time / 10.),
+            dir: Vec2::from_angle(TAU * time / 12.),
         };
 
         let path = calc_path(ray, &scene, 100);
@@ -169,7 +169,7 @@ fn calc_path(mut ray: Ray, scene: &[Line], max_bounces: usize) -> Vec<Vec2> {
             points.push(end_pt);
 
             // Mirror reflections
-            let normal = line.normal() * ray.dir.dot(line.normal()).signum();
+            let normal = line.normal();
             let new_dir = reflect(ray.dir, normal);
 
             ray = Ray {
