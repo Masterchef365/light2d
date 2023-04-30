@@ -25,7 +25,7 @@ const OOBLECK_DISPERSION: Dispersion = Dispersion(Quadratic {
     c: 1.00,
 });
 
-const N_PATHS: usize = 100;
+const N_PATHS: usize = 1;
 const MAX_BOUNCES: usize = 10_000;
 
 struct ClientState;
@@ -54,18 +54,55 @@ impl UserState for ClientState {
     }
 }
 
+fn polygon(n: usize, radius: f32) -> Vec<Line> {
+    (0..n)
+        .map(|i| {
+            let j = ((i + 1) % n) as f32 / n as f32;
+            let i = i as f32 / n as f32;
+
+            let r = |t| Vec2::from_angle(t * TAU) * radius;
+            Line(r(i), r(j))
+        })
+        .collect()
+}
+
 impl ClientState {
     pub fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         let Some(FrameTime { time, .. }) = io.inbox_first() else { return };
         //let time = 2.;
         let time = time / 10.;
 
+        let mut scene = vec![];
+        for y in -10..=10 {
+            for x in -10..=10 {
+                if (x, y) == (0, 0) {
+                    continue;
+                }
+
+                let pos = Vec2::new(x as f32, y as f32);
+                let mut lines = polygon(3, 0.5);
+
+                let rot = ((x + y) as f32 * 8.23482423).cos() * TAU / 2.;
+                let rot = Vec2::from_angle(rot);
+
+                lines.iter_mut().for_each(|Line(p1, p2)| {
+                    *p2 = p2.rotate(rot);
+                    *p1 = p1.rotate(rot);
+                    *p1 += pos;
+                    *p2 += pos;
+                });
+
+                //let mat = WallType::Prism(GLASS_DISPERSION);
+                let mat = WallType::Mirror;
+
+                scene.extend(lines.into_iter().zip(std::iter::repeat(mat)));
+            }
+        }
+
+        /*
         let l = 100.;
         let scene = vec![
-            (
-                Line(Vec2::new(19., -l), Vec2::new(3., l)),
-                WallType::Mirror,
-            ),
+            (Line(Vec2::new(19., -l), Vec2::new(3., l)), WallType::Mirror),
             (
                 Line(Vec2::new(1., -l), Vec2::new(1., l)),
                 WallType::Prism(GLASS_DISPERSION),
@@ -80,6 +117,7 @@ impl ClientState {
             ),
             //Line(Vec2::new(3., 1.), Vec2::new(2., 2.))
         ];
+        */
 
         let lines: Vec<Line> = scene.iter().map(|(line, _)| *line).collect();
 
@@ -94,7 +132,8 @@ impl ClientState {
         for i in 0..N_PATHS {
             let t = i as f32 / N_PATHS as f32; //rng.gen_f32();
                                                //let t = (time.sin() + 1.) / 2.;
-            let wavelength = t * 400. + (1. - t) * 700.;
+            //let wavelength = t * 400. + (1. - t) * 700.;
+            let wavelength = t * 500. + (1. - t) * 600.;
 
             let ray = Ray {
                 origin: Vec2::ZERO,
@@ -338,11 +377,8 @@ fn path_mesh(mesh: &mut Mesh, path: &[Vec2], color: [f32; 3]) {
     mesh.vertices
         .extend(path.iter().map(|v| Vertex::new([v.x, 0., v.y], color)));
 
-    mesh.indices.extend(
-        (0..)
-            .map(|i| (i + 1) / 2 + base)
-            .take(path.len() * 2 - 2),
-    );
+    mesh.indices
+        .extend((0..).map(|i| (i + 1) / 2 + base).take(path.len() * 2 - 2));
 }
 
 fn lines_mesh(mesh: &mut Mesh, lines: &[Line], color: [f32; 3]) {
