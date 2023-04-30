@@ -1,6 +1,6 @@
 use cimvr_common::{
-    glam::Vec2,
-    render::{Mesh, MeshHandle, Render, UploadMesh, Vertex, Primitive},
+    glam::{vec3, Vec2, Vec3},
+    render::{Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
     Transform,
 };
 use cimvr_engine_interface::{dbg, make_app_state, pkg_namespace, prelude::*, FrameTime};
@@ -26,7 +26,8 @@ impl UserState for ClientState {
             .add_component(Render::new(WALLS_RDR).primitive(Primitive::Lines))
             .build();
 
-        sched.add_system(Self::update)
+        sched
+            .add_system(Self::update)
             .subscribe::<FrameTime>()
             .build();
 
@@ -38,12 +39,22 @@ impl ClientState {
     pub fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         let Some(FrameTime { time, .. }) = io.inbox_first() else { return };
 
+        let ior = 1.76; //1.3330/1.3394;
         let scene = vec![
-            //(Line(Vec2::new(1., -10.), Vec2::new(1., 10.)), WallType::Prism(1.510)),
-            (Line(Vec2::new(1., -10.), Vec2::new(1., 10.)), WallType::Mirror),
-            //(Line(Vec2::new(2., -10.), Vec2::new(2., 10.)), WallType::Prism(1./1.510)),
-            (Line(Vec2::new(2., -10.), Vec2::new(2., 10.)), WallType::Mirror),
-            (Line(Vec2::new(-1., -10.), Vec2::new(-1., 10.)), WallType::Mirror),
+            (
+                Line(Vec2::new(1., -10.), Vec2::new(1., 10.)),
+                WallType::Prism(ior),
+            ),
+            //(Line(Vec2::new(1., -10.), Vec2::new(1., 10.)), WallType::Mirror),
+            (
+                Line(Vec2::new(2., -10.), Vec2::new(2., 10.)),
+                WallType::Prism(1. / ior),
+            ),
+            //(Line(Vec2::new(2., -10.), Vec2::new(2., 10.)), WallType::Mirror),
+            (
+                Line(Vec2::new(-1., -10.), Vec2::new(-1., 10.)),
+                WallType::Mirror,
+            ),
             //Line(Vec2::new(3., 1.), Vec2::new(2., 2.))
         ];
 
@@ -61,11 +72,14 @@ impl ClientState {
 
         let path = calc_path(ray, &scene, 1000);
 
+        let t = (time.sin() + 1.) / 2.;
+        let wavelength = t * 400. + (1. -t) * 700.;
+        let color = wavelength_to_color(wavelength);
+
         io.send(&UploadMesh {
             id: BOUNCE_RDR,
-            mesh: path_mesh(&path, [0., 1., 0.]),
+            mesh: path_mesh(&path, color),
         });
-
     }
 }
 
@@ -112,7 +126,10 @@ enum WallType {
 
 impl Default for Wall {
     fn default() -> Self {
-        Wall { width: 0., wall_type: WallType::Mirror }
+        Wall {
+            width: 0.,
+            wall_type: WallType::Mirror,
+        }
     }
 }
 
@@ -198,8 +215,7 @@ fn calc_path(mut ray: Ray, scene: &[(Line, WallType)], max_bounces: usize) -> Ve
             points.push(end_pt);
 
             let normal = line.normal();
-            let new_dir = 
-            match wall_type {
+            let new_dir = match wall_type {
                 WallType::Mirror => reflect(ray.dir, normal),
                 WallType::Prism(eta) => refract(ray.dir, normal, eta),
             };
@@ -267,11 +283,41 @@ fn lines_mesh(lines: &[Line], color: [f32; 3]) -> Mesh {
 }
 
 /*
-   impl Default for Wall {
-   fn default() -> Self {
-   Self {
-   width: 1.,
-   }
-   }
-   }
-   */
+impl Default for Wall {
+fn default() -> Self {
+Self {
+width: 1.,
+}
+}
+}
+*/
+
+fn wavelength_to_color(lambda: f32) -> [f32; 3] {
+    spectral_zucconi6(lambda).to_array()
+}
+
+// By Alan Zucconi
+// Based on GPU Gems: https://developer.nvidia.com/sites/all/modules/custom/gpugems/books/GPUGems/gpugems_ch08.html
+// But with values optimised to match as close as possible the visible spectrum
+// Fits this: https://commons.wikimedia.org/wiki/File:Linear_visible_spectrum.svg
+// With weighter MSE (RGB weights: 0.3, 0.59, 0.11)
+fn bump3y(x: Vec3, yoffset: Vec3) -> Vec3 {
+    let y = Vec3::ONE - x * x;
+    (y - yoffset).clamp(Vec3::ZERO, Vec3::ONE)
+}
+
+fn spectral_zucconi6(w: f32) -> Vec3 {
+    // w: [400, 700]
+    // x: [0,   1]
+    let x = ((w - 400.0) / 300.0).clamp(0., 1.);
+
+    const C1: Vec3 = vec3(3.54585104, 2.93225262, 2.41593945);
+    const X1: Vec3 = vec3(0.69549072, 0.49228336, 0.27699880);
+    const Y1: Vec3 = vec3(0.02312639, 0.15225084, 0.52607955);
+
+    const C2: Vec3 = vec3(3.90307140, 3.21182957, 3.96587128);
+    const X2: Vec3 = vec3(0.11748627, 0.86755042, 0.66077860);
+    const Y2: Vec3 = vec3(0.84897130, 0.88445281, 0.73949448);
+
+    return bump3y(C1 * (x - X1), Y1) + bump3y(C2 * (x - X2), Y2);
+}
