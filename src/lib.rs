@@ -57,23 +57,25 @@ impl UserState for ClientState {
 impl ClientState {
     pub fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         let Some(FrameTime { time, .. }) = io.inbox_first() else { return };
-        let time = 2.;
+        //let time = 2.;
+        let time = time / 10.;
 
+        let l = 100.;
         let scene = vec![
             (
-                Line(Vec2::new(5., -10.), Vec2::new(3., 10.)),
+                Line(Vec2::new(19., -l), Vec2::new(3., l)),
                 WallType::Mirror,
             ),
             (
-                Line(Vec2::new(1., -10.), Vec2::new(1., 10.)),
+                Line(Vec2::new(1., -l), Vec2::new(1., l)),
                 WallType::Prism(GLASS_DISPERSION),
             ),
             (
-                Line(Vec2::new(2., -10.), Vec2::new(2., 10.)),
+                Line(Vec2::new(2., -l), Vec2::new(2., l)),
                 WallType::Prism(GLASS_DISPERSION),
             ),
             (
-                Line(Vec2::new(-1., -10.), Vec2::new(-1., 10.)),
+                Line(Vec2::new(-1., -l), Vec2::new(-1., l)),
                 WallType::Mirror,
             ),
             //Line(Vec2::new(3., 1.), Vec2::new(2., 2.))
