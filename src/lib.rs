@@ -11,6 +11,7 @@ make_app_state!(ClientState, ServerState);
 
 const GLASS_DISPERSION: Dispersion = Dispersion(Quadratic { a: 5.72e-8, b: -1.32e-4, c: 1.57 });
 const WATER_DISPERSION: Dispersion = Dispersion(Quadratic { a: 8.64e-8, b: -1.37e-4, c: 1.38 });
+const OOBLECK_DISPERSION: Dispersion = Dispersion(Quadratic { a: 8.64e-8, b: -1.37e-4, c: 1.00 });
 
 struct ClientState;
 
@@ -41,18 +42,16 @@ impl UserState for ClientState {
 impl ClientState {
     pub fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         let Some(FrameTime { time, .. }) = io.inbox_first() else { return };
-
-        let mut rng = Pcg::new();
-
+        let time = 2.;
 
         let scene = vec![
             (
-                Line(Vec2::new(1., 10.), Vec2::new(1., -10.)),
-                WallType::Prism(GLASS_DISPERSION),
+                Line(Vec2::new(1., -10.), Vec2::new(1., 10.)),
+                WallType::Prism(OOBLECK_DISPERSION),
             ),
             (
-                Line(Vec2::new(2., 10.), Vec2::new(2., -10.)),
-                WallType::Prism(GLASS_DISPERSION),
+                Line(Vec2::new(2., -10.), Vec2::new(2., 10.)),
+                WallType::Prism(OOBLECK_DISPERSION),
             ),
             (
                 Line(Vec2::new(-1., -10.), Vec2::new(-1., 10.)),
@@ -70,7 +69,7 @@ impl ClientState {
                 mesh: walls_mesh,
             });
 
-        const N_PATHS: usize = 10;
+        const N_PATHS: usize = 40;
 
         let mut paths_mesh = Mesh::new();
         for i in 0..N_PATHS {
