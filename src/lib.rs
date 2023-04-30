@@ -77,7 +77,7 @@ impl ClientState {
     pub fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         let Some(FrameTime { time, .. }) = io.inbox_first() else { return };
         //let time = 2.;
-        let time = time / 100.;
+        let time = time / 1000.;
 
         let mut scene = vec![];
         for y in -10..=10 {
@@ -87,11 +87,11 @@ impl ClientState {
                 }
 
                 let pos = Vec2::new(x as f32, y as f32);
-                let mut lines = polygon(4, 0.5);
+                let mut lines = polygon(5, 0.3);
 
                 //let rot = ((x + y) as f32 * 8.23482423).cos() * TAU / 2.;
                 //let rot = (time/1e2).to_degrees();
-                let rot = 3.1415/3.;
+                let rot = 3.1415/8.;
                 let rot = Vec2::from_angle(rot);
 
                 lines.iter_mut().for_each(|Line(p1, p2)| {
