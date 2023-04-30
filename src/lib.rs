@@ -26,7 +26,7 @@ const OOBLECK_DISPERSION: Dispersion = Dispersion(Quadratic {
 });
 
 const N_PATHS: usize = 1;
-const MAX_BOUNCES: usize = 10_000;
+const MAX_BOUNCES: usize = 1000;
 
 struct ClientState;
 
@@ -70,7 +70,7 @@ impl ClientState {
     pub fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         let Some(FrameTime { time, .. }) = io.inbox_first() else { return };
         //let time = 2.;
-        let time = time / 10.;
+        let time = time / 100.;
 
         let mut scene = vec![];
         for y in -10..=10 {
