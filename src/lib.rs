@@ -25,8 +25,15 @@ const OOBLECK_DISPERSION: Dispersion = Dispersion(Quadratic {
     c: 1.00,
 });
 
-const N_PATHS: usize = 1;
-const MAX_BOUNCES: usize = 1000;
+const AIR_DISPERSION: Dispersion = Dispersion(Quadratic {
+    a: 0.,
+    b: 0.,
+    c: 1.00,
+});
+
+
+const N_PATHS: usize = 10;
+const MAX_BOUNCES: usize = 300;
 
 struct ClientState;
 
@@ -80,9 +87,11 @@ impl ClientState {
                 }
 
                 let pos = Vec2::new(x as f32, y as f32);
-                let mut lines = polygon(3, 0.5);
+                let mut lines = polygon(4, 0.5);
 
-                let rot = ((x + y) as f32 * 8.23482423).cos() * TAU / 2.;
+                //let rot = ((x + y) as f32 * 8.23482423).cos() * TAU / 2.;
+                //let rot = (time/1e2).to_degrees();
+                let rot = 3.1415/3.;
                 let rot = Vec2::from_angle(rot);
 
                 lines.iter_mut().for_each(|Line(p1, p2)| {
@@ -92,8 +101,8 @@ impl ClientState {
                     *p2 += pos;
                 });
 
-                //let mat = WallType::Prism(GLASS_DISPERSION);
-                let mat = WallType::Mirror;
+                let mat = WallType::Prism(AIR_DISPERSION);
+                //let mat = WallType::Mirror;
 
                 scene.extend(lines.into_iter().zip(std::iter::repeat(mat)));
             }
@@ -133,11 +142,14 @@ impl ClientState {
             let t = i as f32 / N_PATHS as f32; //rng.gen_f32();
                                                //let t = (time.sin() + 1.) / 2.;
             //let wavelength = t * 400. + (1. - t) * 700.;
-            let wavelength = t * 500. + (1. - t) * 600.;
+            let k = 600.;
+            let d = 20.;
+            let wavelength = t * (k + d) + (1. - t) * (k - d);
 
             let ray = Ray {
                 origin: Vec2::ZERO,
                 dir: Vec2::from_angle(TAU * time / 12.),
+                //dir: Vec2::X,
                 wavelength,
             };
 
