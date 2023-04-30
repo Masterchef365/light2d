@@ -25,6 +25,9 @@ const OOBLECK_DISPERSION: Dispersion = Dispersion(Quadratic {
     c: 1.00,
 });
 
+const N_PATHS: usize = 100;
+const MAX_BOUNCES: usize = 10_000;
+
 struct ClientState;
 
 const BOUNCE_RDR: MeshHandle = MeshHandle::new(pkg_namespace!("Bounces"));
@@ -58,6 +61,10 @@ impl ClientState {
 
         let scene = vec![
             (
+                Line(Vec2::new(5., -10.), Vec2::new(3., 10.)),
+                WallType::Mirror,
+            ),
+            (
                 Line(Vec2::new(1., -10.), Vec2::new(1., 10.)),
                 WallType::Prism(GLASS_DISPERSION),
             ),
@@ -81,8 +88,6 @@ impl ClientState {
             mesh: walls_mesh,
         });
 
-        const N_PATHS: usize = 40;
-
         let mut paths_mesh = Mesh::new();
         for i in 0..N_PATHS {
             let t = i as f32 / N_PATHS as f32; //rng.gen_f32();
@@ -95,8 +100,7 @@ impl ClientState {
                 wavelength,
             };
 
-            let path = calc_path(ray, &scene, 1000);
-            dbg!(&path);
+            let path = calc_path(ray, &scene, MAX_BOUNCES);
 
             let color = wavelength_to_color(wavelength);
 
