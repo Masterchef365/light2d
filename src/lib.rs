@@ -3,7 +3,7 @@ use cimvr_common::{
     render::{Mesh, MeshHandle, Render, UploadMesh, Vertex, Primitive},
     Transform,
 };
-use cimvr_engine_interface::{make_app_state, pkg_namespace, prelude::*, FrameTime};
+use cimvr_engine_interface::{dbg, make_app_state, pkg_namespace, prelude::*, FrameTime};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::TAU;
 
@@ -41,7 +41,8 @@ impl ClientState {
         let scene = vec![
             //(Line(Vec2::new(1., -10.), Vec2::new(1., 10.)), WallType::Prism(1.510)),
             (Line(Vec2::new(1., -10.), Vec2::new(1., 10.)), WallType::Mirror),
-            (Line(Vec2::new(2., -10.), Vec2::new(2., 10.)), WallType::Prism(1./1.510)),
+            //(Line(Vec2::new(2., -10.), Vec2::new(2., 10.)), WallType::Prism(1./1.510)),
+            (Line(Vec2::new(2., -10.), Vec2::new(2., 10.)), WallType::Mirror),
             (Line(Vec2::new(-1., -10.), Vec2::new(-1., 10.)), WallType::Mirror),
             //Line(Vec2::new(3., 1.), Vec2::new(2., 2.))
         ];
@@ -58,7 +59,7 @@ impl ClientState {
             dir: Vec2::from_angle(TAU * time / 12.),
         };
 
-        let path = calc_path(ray, &scene, 100);
+        let path = calc_path(ray, &scene, 1000);
 
         io.send(&UploadMesh {
             id: BOUNCE_RDR,
@@ -150,9 +151,8 @@ fn cross2d(a: Vec2, b: Vec2) -> f32 {
     a.x * b.y - a.y * b.x
 }
 
-/// Returns the value `t` corresponding to the position along the ray one should travel to
-/// intersect the given line, if any.
-fn ray_line_intersect(ray: Ray, line: Line) -> Option<f32> {
+/// Returns the value `(ray_interp, line_interp)` for an intersection, if any
+fn ray_line_intersect(ray: Ray, line: Line) -> Option<(f32, f32)> {
     // Use p1 as the reference in this coordinate system
     let Line(p1, p2) = line;
     let ray_origin = ray.origin - p1;
@@ -169,7 +169,7 @@ fn ray_line_intersect(ray: Ray, line: Line) -> Option<f32> {
     let k = cross2d(ray.dir, ray_origin) / discriminant;
 
     // Check if we're inside the line segment, and if so return t
-    ((0.0..=1.0).contains(&k) && t >= 0.).then(|| k)
+    ((0.0..=1.0).contains(&k) && t >= 0.).then(|| (t, k))
 }
 
 fn reflect(incident: Vec2, normal: Vec2) -> Vec2 {
@@ -192,12 +192,11 @@ fn calc_path(mut ray: Ray, scene: &[(Line, WallType)], max_bounces: usize) -> Ve
     let lines: Vec<Line> = scene.iter().map(|(line, _)| *line).collect();
 
     for _ in 0..max_bounces {
-        if let Some((idx, interp)) = intersect_scene(ray, &lines) {
-            let (line, wall_type) = scene[idx];
-            let end_pt = line.position(interp);
+        if let Some((line_idx, ray_interp, line_interp)) = intersect_scene(ray, &lines) {
+            let (line, wall_type) = scene[line_idx];
+            let end_pt = line.position(line_interp);
             points.push(end_pt);
 
-            // Mirror reflections
             let normal = line.normal();
             let new_dir = 
             match wall_type {
@@ -210,8 +209,8 @@ fn calc_path(mut ray: Ray, scene: &[(Line, WallType)], max_bounces: usize) -> Ve
                 dir: new_dir,
             };
 
-            ray.origin += ray.dir * 0.001;
-
+            // Step ahead just a little bit to get out of the wall...
+            ray.origin += ray.dir * 0.0001;
         } else {
             points.push(ray.position(100.));
             return points;
@@ -222,17 +221,21 @@ fn calc_path(mut ray: Ray, scene: &[(Line, WallType)], max_bounces: usize) -> Ve
 }
 
 /// Returns the index and interpolation of the wall which was hit
-fn intersect_scene(ray: Ray, scene: &[Line]) -> Option<(usize, f32)> {
+fn intersect_scene(ray: Ray, scene: &[Line]) -> Option<(usize, f32, f32)> {
     let mut closest = None;
 
-    for (idx, line) in scene.iter().enumerate() {
-        if let Some(t) = ray_line_intersect(ray, *line) {
-            if let Some((_, prev_t)) = closest {
-                if t > prev_t || t < 0. {
+    for (line_idx, line) in scene.iter().enumerate() {
+        if let Some((ray_interp, line_interp)) = ray_line_intersect(ray, *line) {
+            if let Some((_, prev_best, _)) = closest {
+                if ray_interp > prev_best {
+                    // Skip lines which are further away
                     continue;
                 }
             }
-            closest = Some((idx, t));
+
+            if line_interp > 0. {
+                closest = Some((line_idx, ray_interp, line_interp));
+            }
         }
     }
 
