@@ -9,9 +9,21 @@ use std::f32::consts::TAU;
 
 make_app_state!(ClientState, ServerState);
 
-const GLASS_DISPERSION: Dispersion = Dispersion(Quadratic { a: 5.72e-8, b: -1.32e-4, c: 1.57 });
-const WATER_DISPERSION: Dispersion = Dispersion(Quadratic { a: 8.64e-8, b: -1.37e-4, c: 1.38 });
-const OOBLECK_DISPERSION: Dispersion = Dispersion(Quadratic { a: 8.64e-8, b: -1.37e-4, c: 1.00 });
+const GLASS_DISPERSION: Dispersion = Dispersion(Quadratic {
+    a: 5.72e-8,
+    b: -1.32e-4,
+    c: 1.57,
+});
+const WATER_DISPERSION: Dispersion = Dispersion(Quadratic {
+    a: 8.64e-8,
+    b: -1.37e-4,
+    c: 1.38,
+});
+const OOBLECK_DISPERSION: Dispersion = Dispersion(Quadratic {
+    a: 8.64e-8,
+    b: -1.37e-4,
+    c: 1.00,
+});
 
 struct ClientState;
 
@@ -47,11 +59,11 @@ impl ClientState {
         let scene = vec![
             (
                 Line(Vec2::new(1., -10.), Vec2::new(1., 10.)),
-                WallType::Prism(OOBLECK_DISPERSION),
+                WallType::Prism(GLASS_DISPERSION),
             ),
             (
                 Line(Vec2::new(2., -10.), Vec2::new(2., 10.)),
-                WallType::Prism(OOBLECK_DISPERSION),
+                WallType::Prism(GLASS_DISPERSION),
             ),
             (
                 Line(Vec2::new(-1., -10.), Vec2::new(-1., 10.)),
@@ -60,21 +72,21 @@ impl ClientState {
             //Line(Vec2::new(3., 1.), Vec2::new(2., 2.))
         ];
 
-            let lines: Vec<Line> = scene.iter().map(|(line, _)| *line).collect();
+        let lines: Vec<Line> = scene.iter().map(|(line, _)| *line).collect();
 
-            let mut walls_mesh = Mesh::new();
-            lines_mesh(&mut walls_mesh, &lines, [1.; 3]);
-            io.send(&UploadMesh {
-                id: WALLS_RDR,
-                mesh: walls_mesh,
-            });
+        let mut walls_mesh = Mesh::new();
+        lines_mesh(&mut walls_mesh, &lines, [1.; 3]);
+        io.send(&UploadMesh {
+            id: WALLS_RDR,
+            mesh: walls_mesh,
+        });
 
         const N_PATHS: usize = 40;
 
         let mut paths_mesh = Mesh::new();
         for i in 0..N_PATHS {
             let t = i as f32 / N_PATHS as f32; //rng.gen_f32();
-            //let t = (time.sin() + 1.) / 2.;
+                                               //let t = (time.sin() + 1.) / 2.;
             let wavelength = t * 400. + (1. - t) * 700.;
 
             let ray = Ray {
@@ -84,6 +96,7 @@ impl ClientState {
             };
 
             let path = calc_path(ray, &scene, 1000);
+            dbg!(&path);
 
             let color = wavelength_to_color(wavelength);
 
@@ -249,7 +262,7 @@ fn calc_path(mut ray: Ray, scene: &[(Line, WallType)], max_bounces: usize) -> Ve
     let lines: Vec<Line> = scene.iter().map(|(line, _)| *line).collect();
 
     for _ in 0..max_bounces {
-        if let Some((line_idx, ray_interp, line_interp)) = intersect_scene(ray, &lines) {
+        if let Some((line_idx, _ray_interp, line_interp)) = intersect_scene(ray, &lines) {
             let (line, wall_type) = scene[line_idx];
             let end_pt = line.position(line_interp);
             points.push(end_pt);
@@ -316,13 +329,14 @@ fn intersect_scene(ray: Ray, scene: &[Line]) -> Option<(usize, f32, f32)> {
 fn path_mesh(mesh: &mut Mesh, path: &[Vec2], color: [f32; 3]) {
     let base = mesh.vertices.len() as u32;
 
-    mesh.vertices.extend(path
-        .iter()
-        .map(|v| Vertex::new([v.x, 0., v.y], color)));
+    mesh.vertices
+        .extend(path.iter().map(|v| Vertex::new([v.x, 0., v.y], color)));
 
-    mesh.indices.extend((0..)
-        .map(|i| (i + 1) / 2 + base)
-        .take((path.len() * 2 - 1) * 2));
+    mesh.indices.extend(
+        (0..)
+            .map(|i| (i + 1) / 2 + base)
+            .take(path.len() * 2 - 2),
+    );
 }
 
 fn lines_mesh(mesh: &mut Mesh, lines: &[Line], color: [f32; 3]) {
