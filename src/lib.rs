@@ -104,7 +104,11 @@ impl ClientState {
 
             let path = calc_path(ray, &scene, MAX_BOUNCES);
 
-            let color = wavelength_to_color(wavelength);
+            let mut color = wavelength_to_color(wavelength);
+
+            if i == 0 {
+                color = [1.; 3];
+            }
 
             path_mesh(&mut paths_mesh, &path, color);
         }
